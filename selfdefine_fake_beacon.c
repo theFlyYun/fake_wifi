@@ -19,7 +19,7 @@ typedef unsigned int uint32;
 typedef signed long long int64;
 typedef unsigned long long uint64;
 
-//用于生成beacon时的变量，此处只有bssid和essid两个字段可更改
+// 用于生成beacon时的变量，此处只有bssid和essid两个字段可更改
 struct ap
 {
     uint8 bssid[6];
@@ -28,7 +28,7 @@ struct ap
     char essid[32];
 };
 
-//初始化ap，写入bssid和essid
+// 初始化ap，写入bssid和essid
 void init_ap(struct ap *p_ap, uint8 *p_bssid, char *p_essid)
 {
     memcpy(p_ap->bssid, p_bssid, 6);
@@ -40,7 +40,7 @@ void init_ap(struct ap *p_ap, uint8 *p_bssid, char *p_essid)
     memcpy(p_ap->essid, p_essid, t_len);
 }
 
-//组帧
+// 组帧
 uint16 create_beacon_frame(uint8 *p_buffer, struct ap *p_ap)
 {
     // Frame Control	0×80 0×00
@@ -48,16 +48,16 @@ uint16 create_beacon_frame(uint8 *p_buffer, struct ap *p_ap)
     // Destination Address	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF
     memcpy(p_buffer, "\x80\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\xFF", 10);
 
-    //Source Addres
+    // Source Addres
     memcpy(p_buffer + 10, p_ap->bssid, 6);
 
-    //BSSID
+    // BSSID
     memcpy(p_buffer + 16, p_ap->bssid, 6);
 
     // Seq-ID	低4位：0×0，高12位：帧序号
-    p_buffer[22] = (uint8)(p_ap->seq_id & 0xFF);//低八位
-    p_buffer[23] = (uint8)((p_ap->seq_id >> 8) & 0xFF);//高八位
-    p_ap->seq_id += 0x10;//低四位置零，高四位加1
+    p_buffer[22] = (uint8)(p_ap->seq_id & 0xFF);        // 低八位
+    p_buffer[23] = (uint8)((p_ap->seq_id >> 8) & 0xFF); // 高八位
+    p_ap->seq_id += 0x10;                               // 低四位置零，高四位加1
 
     struct timeval t_time;
     gettimeofday(&t_time, 0);
@@ -69,19 +69,19 @@ uint16 create_beacon_frame(uint8 *p_buffer, struct ap *p_ap)
         p_buffer[24 + t_i] = (uint8)((t_timestamp >> (t_i << 3)) & 0xFF);
 
     // Beacon Interval	2字节，0x64 0×00
-    //Capability info	0×01 0×00
+    // Capability info	0×01 0×00
     memcpy(p_buffer + 32, "\x64\x00\x01\x00", 4);
     p_buffer[36] = 0;
 
-    //SSID 2字节长度 + SSID
+    // SSID 2字节长度 + SSID
     p_buffer[37] = p_ap->essid_len;
     memcpy(p_buffer + 38, p_ap->essid, p_ap->essid_len);
 
-    //返回帧字节长度
+    // 返回帧字节长度
     return 38 + p_ap->essid_len;
 }
 
-//次序依次为创建链路层套接字、找出wlan0的网卡编号、将原始套接字与wlan0绑定、将原始套接字设置为混杂模式
+// 次序依次为创建链路层套接字、找出wlan0的网卡编号、将原始套接字与wlan0绑定、将原始套接字设置为混杂模式
 int32 create_raw_socket(char *p_iface)
 {
     /* new raw socket */
@@ -124,7 +124,7 @@ int32 create_raw_socket(char *p_iface)
     return t_socket;
 }
 
-//附上radiotap头，发送帧
+// 附上radiotap头，发送帧
 int32 send_80211_frame(int32 p_socket, uint8 *p_buffer, uint32 p_size)
 {
     uint8 t_buffer[4096];
@@ -134,13 +134,12 @@ int32 send_80211_frame(int32 p_socket, uint8 *p_buffer, uint32 p_size)
     所以，需要特别注意的是：RadioTap 并不是 IEEE 802.11 数据帧格式规范的组成部分，
     实际传输的 802.11 帧并不包含所谓的 RadioTap 头部。
     */
-    //无线网卡会附上一个radiotap头，以展现与物理层有关的信息，比如功率、速率等
+    // 无线网卡会附上一个radiotap头，以展现与物理层有关的信息，比如功率、速率等
     uint8 *t_radiotap = (uint8 *)"\x00\x00\x0d\x00\x04\x80\x02\x00\x02\x00\x00\x00\x00";
-    //reversion:8bits 始终为0
-    //pad：8bits 始终为0
-    //length:16bits 0x0d 整个radiotap的长度
-    //present：32bits 0x00048002 代表后面的字段为：rate、tx_flags、channel、fhss
-
+    // reversion:8bits 始终为0
+    // pad：8bits 始终为0
+    // length:16bits 0x0d 整个radiotap的长度
+    // present：32bits 0x00048002 代表后面的字段为：rate、tx_flags、channel、fhss
 
     memcpy(t_buffer, t_radiotap, 13);
     memcpy(t_buffer + 13, p_buffer, p_size);
@@ -154,18 +153,30 @@ int32 send_80211_frame(int32 p_socket, uint8 *p_buffer, uint32 p_size)
     return t_size;
 }
 
+/*
+命令行输入参数：网口名称<iface>,  beacon名称<ssid>,
+             beacon间隔<beacon_interval> ,  signal<signal>
+*/
 int32 main(int argc, char *argv[])
 {
-    
-    struct ap t_ap1;
-    init_ap(&t_ap1, (uint8 *)"\xEC\x17\x2F\x2D\xB6\xB9", "fake_beacon_longyf");
-    uint8 t_buffer[1024];
-    int32 t_socket = create_raw_socket("wlx0013eff10297");
-    while (1)
+    if (argc != 5)
     {
-        uint16 t_len = create_beacon_frame(t_buffer, &t_ap1);
-        printf("%d\n", send_80211_frame(t_socket, t_buffer, t_len));
-        usleep(100000);//100ms
+        printf("Usage: %s <iface> <essid> <beacon_interval> <signal>\n", argv[0]);
+        printf("Example(in longyf's mac): %s wlx0013eff10297 fake_beacon_longyf 100 101010\n", argv[0]) return 0;
     }
-    return 0;
+    else
+    {
+        struct ap t_ap1;
+        init_ap(&t_ap1, (uint8 *)"\xEC\x17\x2F\x2D\xB6\xB8", argv[2]);
+        uint8 t_buffer[1024];
+        int32 t_socket = create_raw_socket(argv[1]);
+        int t_interval = atoi(argv[3])*1000;
+        while (1)
+        {
+            uint16 t_len = create_beacon_frame(t_buffer, &t_ap1);
+            printf("%d\n", send_80211_frame(t_socket, t_buffer, t_len));
+            usleep(t_interval); // 100ms
+        }
+        return 0;
+    }
 }
