@@ -156,16 +156,20 @@ int32 send_80211_frame(int32 p_socket, uint8 *p_buffer, uint32 p_size)
 /*
 命令行输入参数：网口名称<iface>,  beacon名称<ssid>,
              beacon间隔<beacon_interval> ,  signal<signal>
-*/
+
+sudo ./wifi_tx wlan0mon fake_beacon_longyf 100 101010
+*/ 
 int32 main(int argc, char *argv[])
 {
     if (argc != 5)
     {
         printf("Usage: %s <iface> <essid> <beacon_interval> <signal>\n", argv[0]);
-        printf("Example(in longyf's mac): %s wlx0013eff10297 fake_beacon_longyf 100 101010\n", argv[0]) return 0;
+        printf("Example(in longyf's mac): %s wlan0mon fake_beacon_longyf 100 101010\n", argv[0]);
+        return 0;
     }
     else
     {
+        printf("iface: %s\n essid: %s\n beacon_interval: %s\n signal: %s\n", argv[1], argv[2], argv[3], argv[4]);
         struct ap t_ap1;
         init_ap(&t_ap1, (uint8 *)"\xEC\x17\x2F\x2D\xB6\xB8", argv[2]);
         uint8 t_buffer[1024];
